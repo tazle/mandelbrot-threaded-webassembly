@@ -6,51 +6,70 @@
   (local $x i32)
   (local $y i32)
   (local $loc i32)
+  
+  (local $end i32)
+  (local $bloc i32)
 
+  (local $depth i32)
+  
   (block $myblock
     (loop 
 
-      (set_local $loc
-        (i32.atomic.rmw.add
-          (i32.const 0)
-          (i32.const 1)
-        )
-      )
+      (set_local $bloc (i32.atomic.rmw.add (i32.const 0) (i32.const 200)))
 
       ;; loop for 1200 * 800
-      (br_if $myblock (i32.ge_u (get_local $loc) (i32.const 960000)))
-      
-      ;; convert to coordinates
-      (set_local $y
-        (i32.div_u
-          (get_local $loc)
-          (i32.const 1200)
-        )
-      )
-      (set_local $x
-        (i32.rem_u
-          (get_local $loc)
-          (i32.const 1200)
-        )
-      )
+      (br_if $myblock (i32.ge_u (get_local $bloc) (i32.const 960000)))
 
-      ;; compute the next mandelbrot step and store
-      (i32.store
-        (call $offsetFromCoordinate
-          (get_local $x)
-          (get_local $y)
-        )
-        (call $colour
-          (call $executeStep
-            (get_local $cx)
-            (get_local $cy)
-            (get_local $diameter)
-            (get_local $x)
-            (get_local $y)
-          )
+
+      (block $inner_block
+        (set_local $loc (get_local $bloc))
+        (set_local $end (i32.add (get_local $bloc) (i32.const 200)))
+        
+        (loop
+          (br_if $inner_block (i32.ge_u (get_local $loc) (get_local $end)))
+          
+          (set_local $loc
+            (i32.add
+              (get_local $loc)
+              (i32.const 1)))
+
+          ;; convert to coordinates
+          (set_local $y
+            (i32.div_u
+              (get_local $loc)
+              (i32.const 1200)))
+
+          (set_local $x
+            (i32.rem_u
+              (get_local $loc)
+              (i32.const 1200)))
+
+          (set_local $depth
+            (call $executeStep
+              (get_local $cx)
+              (get_local $cy)
+              (get_local $diameter)
+              (get_local $x)
+              (get_local $y)))
+
+          ;; compute the next mandelbrot step and store
+          (i32.store
+            (call $offsetFromCoordinate
+              (get_local $x)
+              (get_local $y))
+            (call $colour
+              (i32.add
+                (i32.mul (get_local $thread) (i32.const 0)))
+                (get_local $depth)))
+          ;; (i32.store
+          ;;   (call $offsetFromCoordinate
+          ;;     (i32.sub (get_local $x) (i32.const 1))
+          ;;     (get_local $y))
+          ;;   (call $colour
+          ;;     (i32.mul (get_local $thread) (i32.const 10))))
+          (br 0)
         )
       )
-
       (br 0)
     )
   )
